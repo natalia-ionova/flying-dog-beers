@@ -1,44 +1,61 @@
+
 import dash
+from dash.dependencies import Input, Output
 import dash_core_components as dcc
 import dash_html_components as html
-import plotly.graph_objs as go
 
-########### Set up the chart
-beers=['Chesapeake Stout', 'Snake Dog IPA', 'Imperial Porter', 'Double Dog IPA']
+import flask
+import pandas as pd
+import time
+import os
 
-bitterness = go.Bar(
-    x=beers,
-    y=[35, 60, 85, 75],
-    name='IBU',
-    marker={'color':'red'}
-)
-alcohol = go.Bar(
-    x=beers,
-    y=[5.4, 7.1, 9.2, 4.3],
-    name='ABV',
-    marker={'color':'blue'}
-)
+server = flask.Flask('app')
+server.secret_key = os.environ.get('secret_key', 'secret')
 
-beer_data = [bitterness, alcohol]
-beer_layout = go.Layout(
-    barmode='group',
-    title = 'Beer Comparison'
-)
+df = pd.read_csv('https://raw.githubusercontent.com/plotly/datasets/master/hello-world-stock.csv')
 
-beer_fig = go.Figure(data=beer_data, layout=beer_layout)
+app = dash.Dash('app', server=server)
 
-########### Display the chart
+app.scripts.config.serve_locally = False
+dcc._js_dist[0]['external_url'] = 'https://cdn.plot.ly/plotly-basic-latest.min.js'
 
-app = dash.Dash()
-server = app.server
+app.layout = html.Div([
+    html.H1('Stock Tickers'),
+    dcc.Dropdown(
+        id='my-dropdown',
+        options=[
+            {'label': 'Tesla', 'value': 'TSLA'},
+            {'label': 'Apple', 'value': 'AAPL'},
+            {'label': 'Coke', 'value': 'COKE'}
+        ],
+        value='TSLA'
+    ),
+    dcc.Graph(id='my-graph')
+], className="container")
 
-app.layout = html.Div(children=[
-    html.H1('Flying Dog Beers'),
-    dcc.Graph(
-        id='flyingdog',
-        figure=beer_fig
-    )]
-)
+@app.callback(Output('my-graph', 'figure'),
+              [Input('my-dropdown', 'value')])
+
+def update_graph(selected_dropdown_value):
+    dff = df[df['Stock'] == selected_dropdown_value]
+    return {
+        'data': [{
+            'x': dff.Date,
+            'y': dff.Close,
+            'line': {
+                'width': 3,
+                'shape': 'spline'
+            }
+        }],
+        'layout': {
+            'margin': {
+                'l': 30,
+                'r': 20,
+                'b': 30,
+                't': 20
+            }
+        }
+    }
 
 if __name__ == '__main__':
     app.run_server()
